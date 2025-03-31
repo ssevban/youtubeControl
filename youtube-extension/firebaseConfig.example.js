@@ -1,15 +1,14 @@
 // Firebase yapılandırma bilgileri örneği
 // Bu dosyayı firebaseConfig.js olarak kopyalayın ve kendi değerlerinizle doldurun
 const firebaseConfig = {
-    apiKey: "API_KEY",
-    authDomain: "APP_NAME.firebaseapp.com",
-    databaseURL: "https://APP_NAME-default-rtdb.firebaseio.com",
-    projectId: "PROJECT_ID",
-    storageBucket: "APP_NAME.firebasestorage.app",
-    messagingSenderId: "MESSAGING_SENDER_ID",
-    appId: "APP_ID",
-    measurementId: "MEASUREMENT_ID"
-};
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
 
 // Diğer script'lerin erişebilmesi için dışa aktar
 if (typeof module !== 'undefined' && module.exports) {

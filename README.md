@@ -28,7 +28,7 @@ const firebaseConfig = {
 
 ### Flutter App Setup
 
-1. Install Flutter if you haven't already: [Flutter Installation Guide](https://flutter.dev/docs/get-started/install)
+1. Install Flutter if you haven't already: [Flutter Installation Guide](https://docs.flutter.dev/get-started/install)
 2. Navigate to the `youtubecontrol` directory
 3. Create a new file called `firebase_options.dart` in the `lib` folder based on the example file
 4. Update your Firebase configuration in this file
