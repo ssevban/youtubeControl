@@ -1,0 +1,19 @@
+# Firebase yapılandırma dosyası (API anahtarları içerir)
+firebaseConfig.js
+
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
+
+# IDE/Editor klasörleri
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Log dosyaları
+*.log
+
+# Geçici dosyalar
+*.tmp
+*~ 
