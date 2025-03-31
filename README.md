@@ -7,6 +7,24 @@ This project allows you to control YouTube playback remotely using a mobile appl
 
 ## Setup Instructions
 
+### Firebase Setup (Required First)
+
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Click "Add project" and follow the steps to create a new project
+3. Once your project is created, add a web app by clicking the web icon (</>)
+4. Register your app with a nickname (e.g., "YouTube Control Extension")
+5. Copy the Firebase configuration that appears - you'll need this for both the extension and app
+6. Navigate to "Build > Realtime Database" in the left sidebar
+7. Click "Create Database" and select a location
+8. Start in test mode for development purposes (you can adjust rules later)
+9. For the Flutter app, you also need to add mobile platforms:
+   - Click "Add app" and select Android and/or iOS
+   - For Android: Enter package name (found in android/app/build.gradle)
+   - For iOS: Enter bundle ID (found in ios/Runner.xcodeproj/project.pbxproj)
+   - Download the google-services.json (Android) or GoogleService-Info.plist (iOS)
+   - Place google-services.json in android/app/ folder
+   - Place GoogleService-Info.plist in ios/Runner/ folder
+
 ### Chrome Extension Setup
 
 1. Navigate to `chrome://extensions/` in your Chrome browser
@@ -59,6 +77,9 @@ flutter run
 - Make sure both devices are connected to the internet
 - Verify your Firebase configuration is correct
 - Check that the extension is properly installed and enabled
+
+## Important
+this project created by ai and this readme file writed by ai.
 
 ## License
 
