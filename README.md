@@ -83,8 +83,9 @@ flutter run
 - Check that the extension is properly installed and enabled
 
 ## Important
+
 this project created by ai and this readme file writed by ai.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.

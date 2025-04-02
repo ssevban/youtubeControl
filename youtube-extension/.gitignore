@@ -1,5 +1,5 @@
 # Firebase yapılandırma dosyası (API anahtarları içerir)
-firebaseConfig.js
+firebase/firebaseConfig.js
 
 # Sistem dosyaları
 .DS_Store

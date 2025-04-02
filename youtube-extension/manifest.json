@@ -18,10 +18,10 @@
     "web_accessible_resources": [{
         "resources": [
             "content.js",
-            "firebase-app-compat.js",
-            "firebase-database-compat.js",
-            "firebase-auth-compat.js",
-            "firebaseConfig.js"
+            "firebase/firebase-app-compat.js",
+            "firebase/firebase-database-compat.js",
+            "firebase/firebase-auth-compat.js",
+            "firebase/firebaseConfig.js"
         ],
         "matches": ["*://www.youtube.com/*", "*://music.youtube.com/*"]
     }]

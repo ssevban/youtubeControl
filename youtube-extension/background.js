@@ -1,8 +1,8 @@
 // Firebase dosyalarını import et
 self.importScripts(
-    "firebase-app-compat.js",
-    "firebase-database-compat.js",
-    "firebase-auth-compat.js"
+    "firebase/firebase-app-compat.js",
+    "firebase/firebase-database-compat.js",
+    "firebase/firebase-auth-compat.js"
 );
 
 // Yüklenen tabları takip et
@@ -15,10 +15,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         chrome.scripting.executeScript({
             target: { tabId: tabId },
             files: [
-                "firebase-app-compat.js", 
-                "firebase-database-compat.js", 
-                "firebase-auth-compat.js",
-                "firebaseConfig.js"
+                "firebase/firebase-app-compat.js", 
+                "firebase/firebase-database-compat.js", 
+                "firebase/firebase-auth-compat.js",
+                "firebase/firebaseConfig.js"
             ]
         }).then(() => {
             // Sonra content script'i yükle veya mesaj gönder
@@ -66,10 +66,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.scripting.executeScript({
             target: { tabId: tabId },
             files: [
-                "firebase-app-compat.js", 
-                "firebase-database-compat.js", 
-                "firebase-auth-compat.js",
-                "firebaseConfig.js"
+                "firebase/firebase-app-compat.js", 
+                "firebase/firebase-database-compat.js", 
+                "firebase/firebase-auth-compat.js",
+                "firebase/firebaseConfig.js"
             ]
         }).then(() => {
             // Firebase yüklendi mesajı gönder
