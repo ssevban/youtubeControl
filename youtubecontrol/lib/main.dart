@@ -57,23 +57,15 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class VideoListPage extends StatelessWidget {
+class VideoListPage extends StatefulWidget {
   const VideoListPage({super.key});
 
-  // Video ekleme fonksiyonu - static yapalım
-  static Future<void> addVideo(String title, String status) async {
-    try {
-      final DatabaseReference _database =
-          FirebaseDatabase.instance.ref().child('videos');
-      await _database.push().set({
-        'title': title,
-        'status': status,
-        'lastUpdate': ServerValue.timestamp,
-      });
-    } catch (e) {
-      print('Veri ekleme hatası: $e');
-    }
-  }
+  @override
+  State<VideoListPage> createState() => _VideoListPageState();
+}
+
+class _VideoListPageState extends State<VideoListPage> {
+  List<MapEntry<dynamic, Map<dynamic, dynamic>>> _items = [];
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +81,6 @@ class VideoListPage extends StatelessWidget {
         centerTitle: true,
       ),
       body: StreamBuilder(
-        // İki veritabanını da dinleyelim
         stream: StreamGroup.merge([
           FirebaseDatabase.instance.ref().child('musicTracks').onValue,
           FirebaseDatabase.instance.ref().child('youtubeVideos').onValue,
@@ -103,7 +94,6 @@ class VideoListPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Müzik ve video verilerini ayrı ayrı alalım
           final musicRef = FirebaseDatabase.instance.ref().child('musicTracks');
           final videoRef =
               FirebaseDatabase.instance.ref().child('youtubeVideos');
@@ -118,13 +108,11 @@ class VideoListPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // Müzik ve video verilerini alalım
               final musicData =
                   snapshot.data![0].value as Map<dynamic, dynamic>? ?? {};
               final videoData =
                   snapshot.data![1].value as Map<dynamic, dynamic>? ?? {};
 
-              // Tüm verileri bir listede birleştirelim
               final musicItems = musicData.entries.map((e) {
                 final status = ((e.value as Map)['status'] ?? 'pause')
                     .toString()
@@ -147,202 +135,423 @@ class VideoListPage extends StatelessWidget {
                 });
               }).toList();
 
-              // Müzikleri ve videoları ayrı ayrı tutalım ve birleştirelim
-              final allItems = [
-                ...musicItems, // Müzikler her zaman önce
-                ...videoItems, // Videolar sonra ve kendi sıralarında
-              ];
+              _items = [...musicItems, ...videoItems];
 
               return Column(
                 children: [
                   const SizedBox(height: 10),
                   Expanded(
                     child: RefreshIndicator(
+                      color: Colors.green,
+                      backgroundColor: Color(0xFF1F1F1F),
                       onRefresh: () async {
-                        // Verileri yenilemek için Future.delayed ekleyelim
-                        await Future.delayed(const Duration(milliseconds: 500));
-                        // setState yerine StreamBuilder otomatik olarak yenileyecek
+                        try {
+                          await Future.wait([
+                            FirebaseDatabase.instance
+                                .ref()
+                                .child('musicTracks')
+                                .get(),
+                            FirebaseDatabase.instance
+                                .ref()
+                                .child('youtubeVideos')
+                                .get(),
+                          ]);
+                        } catch (e) {
+                          print('Yenileme hatası: $e');
+                        }
                       },
                       child: ListView.builder(
                         padding: const EdgeInsets.all(8),
-                        itemCount: allItems.length,
+                        itemCount: _items.length,
                         itemBuilder: (context, index) {
-                          final item = allItems[index];
+                          final item = _items[index];
                           final itemData = item.value;
                           final isMusic = itemData['type'] == 'music';
 
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  leading: SizedBox(
-                                    width: 50,
-                                    height: 50,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        itemData['thumbnail'] ??
-                                            'https://via.placeholder.com/50',
-                                        fit: BoxFit.cover,
-                                        width: 50,
-                                        height: 50,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Icon(
-                                            isMusic
-                                                ? Icons.music_note
-                                                : Icons.play_circle_outline,
-                                            color: isMusic
-                                                ? Colors.blue
-                                                : Colors.red,
-                                            size: 30,
-                                          );
-                                        },
+                          return Dismissible(
+                            key: Key(item.key),
+                            background: Container(
+                              color: Colors.red,
+                              alignment: Alignment.centerRight,
+                              padding: EdgeInsets.only(right: 16),
+                              child: Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                            direction: DismissDirection.endToStart,
+                            confirmDismiss: (direction) async {
+                              return await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    backgroundColor: Color(0xFF1F1F1F),
+                                    title: Text(
+                                      'Silmeyi Onayla',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    content: Text(
+                                      'Bu öğeyi silmek istediğinizden emin misiniz?',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: Text(
+                                          'İptal',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
                                       ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: Text(
+                                          'Sil',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            onDismissed: (direction) {
+                              setState(() {
+                                _items.removeAt(index);
+                              });
+
+                              FirebaseDatabase.instance
+                                  .ref()
+                                  .child(
+                                      isMusic ? 'musicTracks' : 'youtubeVideos')
+                                  .child(item.key)
+                                  .remove()
+                                  .catchError((error) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Silme işlemi başarısız oldu: $error'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              });
+                            },
+                            child: Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ExpansionTile(
+                                leading: SizedBox(
+                                  width: 50,
+                                  height: 50,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      itemData['thumbnail'] ??
+                                          'https://via.placeholder.com/50',
+                                      fit: BoxFit.cover,
+                                      width: 50,
+                                      height: 50,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Icon(
+                                          isMusic
+                                              ? Icons.music_note
+                                              : Icons.play_circle_outline,
+                                          color: isMusic
+                                              ? Colors.blue
+                                              : Colors.red,
+                                          size: 30,
+                                        );
+                                      },
                                     ),
                                   ),
-                                  title: Text(
-                                    (itemData['title'] ?? 'Başlıksız')
-                                                .toString()
-                                                .length >
-                                            50
-                                        ? '${(itemData['title'] ?? 'Başlıksız').toString().substring(0, 50)}...'
-                                        : (itemData['title'] ?? 'Başlıksız')
-                                            .toString(),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                    ),
+                                ),
+                                title: Text(
+                                  (itemData['title'] ?? 'Başlıksız')
+                                              .toString()
+                                              .length >
+                                          50
+                                      ? '${(itemData['title'] ?? 'Başlıksız').toString().substring(0, 50)}...'
+                                      : (itemData['title'] ?? 'Başlıksız')
+                                          .toString(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                subtitle: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isMusic
+                                        ? Colors.blue.withOpacity(0.2)
+                                        : Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                  subtitle: Text(
+                                  child: Text(
                                     isMusic ? 'Music' : 'YouTube',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isMusic ? Colors.blue : Colors.red,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  trailing: SizedBox(
-                                    width: 140,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: BoxConstraints(
+                                        minWidth: 28,
+                                        minHeight: 28,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(
+                                        Icons.skip_previous,
+                                        size: 20,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () async {
+                                        await FirebaseDatabase.instance
+                                            .ref()
+                                            .child(isMusic
+                                                ? 'musicTracks'
+                                                : 'youtubeVideos')
+                                            .child(item.key)
+                                            .update({
+                                          'status': 'previous',
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: BoxConstraints(
+                                        minWidth: 28,
+                                        minHeight: 28,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      icon: Icon(
+                                        itemData['status']
+                                                .toString()
+                                                .toLowerCase()
+                                                .contains('play')
+                                            ? Icons.pause_circle
+                                            : Icons.play_circle,
+                                        color: itemData['status']
+                                                .toString()
+                                                .toLowerCase()
+                                                .contains('play')
+                                            ? Colors.green
+                                            : Colors.orange,
+                                        size: 24,
+                                      ),
+                                      onPressed: () async {
+                                        final currentStatus = itemData['status']
+                                            .toString()
+                                            .toLowerCase();
+                                        final newStatus =
+                                            currentStatus.contains('play')
+                                                ? 'pause'
+                                                : 'play';
+                                        try {
+                                          await FirebaseDatabase.instance
+                                              .ref()
+                                              .child(isMusic
+                                                  ? 'musicTracks'
+                                                  : 'youtubeVideos')
+                                              .child(item.key)
+                                              .update({
+                                            'status': newStatus,
+                                            'timestamp': DateFormat(
+                                                    'dd.MM.yyyy HH:mm:ss')
+                                                .format(DateTime.now()),
+                                          });
+                                        } catch (e) {
+                                          print('Status güncelleme hatası: $e');
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: BoxConstraints(
+                                        minWidth: 28,
+                                        minHeight: 28,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(
+                                        Icons.skip_next,
+                                        size: 20,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () async {
+                                        await FirebaseDatabase.instance
+                                            .ref()
+                                            .child(isMusic
+                                                ? 'musicTracks'
+                                                : 'youtubeVideos')
+                                            .child(item.key)
+                                            .update({
+                                          'status': 'next',
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
                                       children: [
-                                        SizedBox(
-                                          width: 35,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            icon: const Icon(
-                                                Icons.skip_previous,
-                                                size: 20),
-                                            onPressed: () async {
-                                              await FirebaseDatabase.instance
-                                                  .ref()
-                                                  .child(isMusic
-                                                      ? 'musicTracks'
-                                                      : 'youtubeVideos')
-                                                  .child(item.key)
-                                                  .update({
-                                                'status': 'previous',
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: 35,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            icon: Icon(
-                                              itemData['status']
-                                                      .toString()
-                                                      .toLowerCase()
-                                                      .contains('play')
-                                                  ? Icons.pause_circle
-                                                  : Icons.play_circle,
-                                              color: itemData['status']
-                                                      .toString()
-                                                      .toLowerCase()
-                                                      .contains('play')
-                                                  ? Colors.green
-                                                  : Colors.orange,
-                                              size: 24,
+                                        // Zaman çubuğu
+                                        Row(
+                                          children: [
+                                            Text(
+                                              _formatDuration(
+                                                  itemData['currentTime'] ?? 0),
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white70),
                                             ),
-                                            onPressed: () async {
-                                              // Debug için mevcut durumu yazdıralım
-                                              print(
-                                                  'Mevcut durum: ${itemData['status']}');
-
-                                              // Status kontrolünü düzeltelim
-                                              final currentStatus =
-                                                  itemData['status']
-                                                      .toString()
-                                                      .toLowerCase();
-                                              final newStatus =
-                                                  currentStatus.contains('play')
-                                                      ? 'pause'
-                                                      : 'play';
-
-                                              print('Yeni durum: $newStatus');
-
-                                              try {
-                                                final databaseRef =
-                                                    FirebaseDatabase
-                                                        .instance
-                                                        .ref()
-                                                        .child(isMusic
-                                                            ? 'musicTracks'
-                                                            : 'youtubeVideos')
-                                                        .child(item.key);
-
-                                                await databaseRef.update({
-                                                  'status': newStatus,
-                                                  'timestamp': DateFormat(
-                                                          'dd.MM.yyyy HH:mm:ss')
-                                                      .format(DateTime.now()),
-                                                });
-                                                print(
-                                                    'Güncelleme başarılı: $newStatus');
-                                              } catch (e) {
-                                                print(
-                                                    'Status güncelleme hatası: $e');
-                                              }
-                                            },
-                                          ),
+                                            Expanded(
+                                              child: SliderTheme(
+                                                data: SliderTheme.of(context)
+                                                    .copyWith(
+                                                  trackHeight: 2.0,
+                                                  activeTrackColor: isMusic
+                                                      ? Colors.blue
+                                                      : Colors.red,
+                                                  inactiveTrackColor:
+                                                      Colors.grey[800],
+                                                  thumbColor: Colors.white,
+                                                  overlayColor: (isMusic
+                                                          ? Colors.blue
+                                                          : Colors.red)
+                                                      .withOpacity(0.2),
+                                                  thumbShape:
+                                                      RoundSliderThumbShape(
+                                                    enabledThumbRadius: 6.0,
+                                                    elevation: 2.0,
+                                                  ),
+                                                  overlayShape:
+                                                      RoundSliderOverlayShape(
+                                                    overlayRadius: 12.0,
+                                                  ),
+                                                ),
+                                                child: Slider(
+                                                  value: (itemData[
+                                                              'currentTime'] ??
+                                                          0)
+                                                      .toDouble(),
+                                                  min: 0,
+                                                  max: (itemData['duration'] ??
+                                                          0)
+                                                      .toDouble(),
+                                                  onChanged:
+                                                      (double value) async {
+                                                    try {
+                                                      await FirebaseDatabase
+                                                          .instance
+                                                          .ref()
+                                                          .child(isMusic
+                                                              ? 'musicTracks'
+                                                              : 'youtubeVideos')
+                                                          .child(item.key)
+                                                          .update({
+                                                        'currentTime':
+                                                            value.round(),
+                                                      });
+                                                    } catch (e) {
+                                                      print(
+                                                          'Video konumu güncelleme hatası: $e');
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              _formatDuration(
+                                                  itemData['duration'] ?? 0),
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white70),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: 35,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            icon: const Icon(Icons.skip_next,
-                                                size: 20),
-                                            onPressed: () async {
-                                              await FirebaseDatabase.instance
-                                                  .ref()
-                                                  .child(isMusic
-                                                      ? 'musicTracks'
-                                                      : 'youtubeVideos')
-                                                  .child(item.key)
-                                                  .update({
-                                                'status': 'next',
-                                              });
-                                            },
-                                          ),
+                                        const SizedBox(height: 8),
+                                        // Ses kontrolü
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.volume_up,
+                                              size: 16,
+                                              color: Colors.white,
+                                            ),
+                                            Expanded(
+                                              child: SliderTheme(
+                                                data: SliderTheme.of(context)
+                                                    .copyWith(
+                                                  trackHeight: 2.0,
+                                                  activeTrackColor:
+                                                      Colors.green,
+                                                  inactiveTrackColor:
+                                                      Colors.grey[800],
+                                                  thumbColor: Colors.white,
+                                                  overlayColor: Colors.green
+                                                      .withOpacity(0.2),
+                                                  thumbShape:
+                                                      RoundSliderThumbShape(
+                                                    enabledThumbRadius: 6.0,
+                                                    elevation: 2.0,
+                                                  ),
+                                                  overlayShape:
+                                                      RoundSliderOverlayShape(
+                                                    overlayRadius: 12.0,
+                                                  ),
+                                                ),
+                                                child: Slider(
+                                                  value:
+                                                      (itemData['volume'] ?? 50)
+                                                          .toDouble(),
+                                                  min: 0,
+                                                  max: 100,
+                                                  divisions: 100,
+                                                  label:
+                                                      '${(itemData['volume'] ?? 50).round()}%',
+                                                  onChangeEnd:
+                                                      (double value) async {
+                                                    try {
+                                                      await FirebaseDatabase
+                                                          .instance
+                                                          .ref()
+                                                          .child(isMusic
+                                                              ? 'musicTracks'
+                                                              : 'youtubeVideos')
+                                                          .child(item.key)
+                                                          .update({
+                                                        'volume': value.round(),
+                                                      });
+                                                    } catch (e) {
+                                                      print(
+                                                          'Ses seviyesi güncelleme hatası: $e');
+                                                    }
+                                                  },
+                                                  onChanged: (double value) {},
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              '${(itemData['volume'] ?? 50).round()}%',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white70),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -356,5 +565,12 @@ class VideoListPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final duration = Duration(seconds: seconds);
+    final minutes = duration.inMinutes;
+    final remainingSeconds = duration.inSeconds - minutes * 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

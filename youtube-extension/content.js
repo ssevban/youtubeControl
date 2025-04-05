@@ -198,32 +198,42 @@ function setupFirebaseListeners() {
                     // Dinleyiciyi ekle
                     musicRef.on('value', (snapshot) => {
                         const data = snapshot.val();
-                        if (data && data.status) {
-                            console.log("Music komutu alındı:", data.status);
-                            if (data.status === "play" || data.status === "pause") {
-                                handlePlayPauseCommand(data.status);
-                            } else {
-                                handleMusicCommand(data.status);
+                        if (data) {
+                            // Status ve volume kontrolü
+                            if (data.status) {
+                                if (data.status === "play" || data.status === "pause") {
+                                    handlePlayPauseCommand(data.status);
+                                } else {
+                                    handleMusicCommand(data.status);
+                                }
+                            }
+                            
+                            // Ses seviyesi kontrolü
+                            if (data.volume !== undefined) {
+                                const video = document.querySelector("video");
+                                if (video) {
+                                    const newVolume = Math.max(0, Math.min(1, data.volume / 100));
+                                    video.volume = newVolume;
+                                }
+                            }
+
+                            // currentTime kontrolü
+                            if (data.currentTime !== undefined) {
+                                handleTimeUpdate(data.currentTime);
                             }
                         }
                     });
-                    
-                    // İlk durumu güncelle
-                    const video = document.querySelector("video");
-                    if (video) {
-                        sendVideoInfo();
-                    }
                 }
             });
         } else if (videoUrl.includes("youtube.com")) {
-            // YouTube için mevcut kod aynı kalacak
             const videoId = getVideoId(videoUrl);
             if (videoId) {
-                window.currentVideoId = videoId; // Mevcut video ID'sini sakla
+                window.currentVideoId = videoId;
                 const videoRef = firebase.database.ref(`youtubeVideos/${videoId}`);
                 videoRef.on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
+                        // Status ve volume kontrolü
                         if (data.status) {
                             if (data.status === "play" || data.status === "pause") {
                                 handlePlayPauseCommand(data.status);
@@ -231,11 +241,42 @@ function setupFirebaseListeners() {
                                 handleYoutubeCommand(data.status);
                             }
                         }
+                        
+                        // Ses seviyesi kontrolü
+                        if (data.volume !== undefined) {
+                            const video = document.querySelector("video");
+                            if (video) {
+                                const newVolume = Math.max(0, Math.min(1, data.volume / 100));
+                                video.volume = newVolume;
+                            }
+                        }
+
+                        // currentTime kontrolü
+                        if (data.currentTime !== undefined) {
+                            handleTimeUpdate(data.currentTime);
+                        }
                     }
                 });
             }
         }
     });
+}
+
+// Yeni fonksiyon: Zaman güncellemelerini işle
+function handleTimeUpdate(newTime) {
+    const video = document.querySelector("video");
+    if (!video) return;
+
+    // Eğer zaman farkı 2 saniyeden fazlaysa güncelle
+    if (Math.abs(video.currentTime - newTime) > 2) {
+        // Son güncelleme zamanını kontrol et
+        const now = Date.now();
+        if (!window.lastTimeJump || now - window.lastTimeJump > 1000) {
+            window.lastTimeJump = now;
+            video.currentTime = newTime;
+            console.log("Video zamanı güncellendi:", newTime);
+        }
+    }
 }
 
 // Firebase dinleyicilerini kaldır - yeni fonksiyon
@@ -258,21 +299,6 @@ function removeFirebaseListeners() {
         }
     });
 }
-
-// Ses değişikliğini işle
-// function handleVolumeChange(volume) {
-//     try {
-//         const video = document.querySelector("video");
-//         if (video) {
-//             // Volume değeri 0-1 arasında olmalı
-//             const normalizedVolume = Math.min(Math.max(volume / 100, 0), 1);
-//             video.volume = normalizedVolume;
-//             console.log("Ses seviyesi güncellendi:", volume);
-//         }
-//     } catch (error) {
-//         console.error("Ses seviyesi güncellenirken hata:", error);
-//     }
-// }
 
 // Debounce fonksiyonu ekle
 function debounce(func, wait) {
@@ -372,8 +398,8 @@ async function handleYoutubeCommand(status) {
     }
 }
 
-// Music status'unu güncelle
-async function updateMusicStatus(status) {
+// Music status'unu güncelle - güncelleme
+async function updateMusicStatus(status, volume = null) {
     withFirebase(async (firebase) => {
         try {
             const title = await getCurrentMusicTitle();
@@ -383,11 +409,19 @@ async function updateMusicStatus(status) {
                 const snapshot = await dbRef.get();
                 const currentData = snapshot.val() || {};
                 
-                await dbRef.update({
+                const updateData = {
                     ...currentData,
-                    status: status,
                     timestamp: getIstanbulTimestamp()
-                });
+                };
+
+                // Eğer ses seviyesi değişmişse ekle
+                if (volume !== null) {
+                    updateData.volume = volume;
+                } else {
+                    updateData.status = status;
+                }
+
+                await dbRef.update(updateData);
             }
         } catch (error) {
             console.error("Music status güncellenirken hata:", error);
@@ -395,8 +429,8 @@ async function updateMusicStatus(status) {
     });
 }
 
-// YouTube status'unu güncelle
-async function updateYoutubeStatus(status) {
+// YouTube status'unu güncelle - güncelleme
+async function updateYoutubeStatus(status, volume = null) {
     withFirebase(async (firebase) => {
         try {
             const videoId = getVideoId(window.location.href);
@@ -405,16 +439,19 @@ async function updateYoutubeStatus(status) {
                 const snapshot = await dbRef.get();
                 const currentData = snapshot.val() || {};
                 
-                // Mevcut ses seviyesini koru
-                const video = document.querySelector("video");
-                // const currentVolume = video ? Math.round(video.volume * 100) : undefined;
-                
-                await dbRef.update({
+                const updateData = {
                     ...currentData,
-                    status: status,
-                    // volume: currentVolume, // Ses seviyesini ekle
                     timestamp: getIstanbulTimestamp()
-                });
+                };
+
+                // Eğer ses seviyesi değişmişse ekle
+                if (volume !== null) {
+                    updateData.volume = volume;
+                } else {
+                    updateData.status = status;
+                }
+
+                await dbRef.update(updateData);
             }
         } catch (error) {
             console.error("YouTube status güncellenirken hata:", error);
@@ -772,6 +809,7 @@ function removeExistingListeners() {
         if (video) {
             video.removeEventListener('play', window.ytPlayHandler);
             video.removeEventListener('pause', window.ytPauseHandler);
+            video.removeEventListener('volumechange', window.ytVolumeHandler);
         }
         window.ytVideoListenerAttached = false;
     }
@@ -844,11 +882,52 @@ function setupVideoListeners(video) {
             updateYoutubeStatus("paused");
         }
     };
+
+    // Ses değişikliği dinleyicisi ekle
+    window.ytVolumeHandler = (event) => {
+        // Sadece kullanıcı etkileşimi varsa güncelle
+        if (!event.isTrusted) {
+            return;
+        }
+        
+        const videoUrl = window.location.href;
+        const currentVolume = video.volume;
+        
+        // Ses seviyesini Firebase'e gönder (0-100 arası)
+        const volumeToSend = Math.round(currentVolume * 100);
+        if (videoUrl.includes("music.youtube.com")) {
+            updateMusicStatus("volume", volumeToSend);
+        } else if (videoUrl.includes("youtube.com")) {
+            updateYoutubeStatus("volume", volumeToSend);
+        }
+    };
+
+    // Süre güncelleme dinleyicisi ekle
+    window.ytTimeUpdateHandler = debounce(() => {
+        const videoUrl = window.location.href;
+        const duration = video.duration;
+        const currentTime = video.currentTime;
+        
+        // Eğer son güncelleme üzerinden 100ms geçmediyse işlemi iptal et
+        if (window.lastTimeUpdateTime && Date.now() - window.lastTimeUpdateTime < 100) {
+            return;
+        }
+        window.lastTimeUpdateTime = Date.now();
+        
+        // Süre bilgilerini Firebase'e gönder
+        if (videoUrl.includes("music.youtube.com")) {
+            updateMusicTimeInfo(duration, currentTime);
+        } else if (videoUrl.includes("youtube.com")) {
+            updateYoutubeTimeInfo(duration, currentTime);
+        }
+    }, 100); // 100ms debounce
     
     // Dinleyicileri ekle ve flag'i ayarla
     if (!video.hasPlayPauseListeners) {
         video.addEventListener('play', window.ytPlayHandler);
         video.addEventListener('pause', window.ytPauseHandler);
+        video.addEventListener('volumechange', window.ytVolumeHandler);
+        video.addEventListener('timeupdate', window.ytTimeUpdateHandler);
         video.hasPlayPauseListeners = true;
         window.ytVideoListenerAttached = true;
         console.log("Video dinleyicileri başarıyla eklendi.");
@@ -860,13 +939,16 @@ function setupVideoListeners(video) {
     }
 }
 
-// Eski dinleyicileri kaldır
+// Eski dinleyicileri kaldır - güncelleme
 function removeVideoListeners(video) {
     if (window.ytPlayHandler) {
         video.removeEventListener('play', window.ytPlayHandler);
     }
     if (window.ytPauseHandler) {
         video.removeEventListener('pause', window.ytPauseHandler);
+    }
+    if (window.ytVolumeHandler) {
+        video.removeEventListener('volumechange', window.ytVolumeHandler);
     }
     video.hasPlayPauseListeners = false;
     window.ytVideoListenerAttached = false;
@@ -965,7 +1047,7 @@ function sendVideoInfo() {
                 return;
             }
             
-        const videoUrl = window.location.href;
+            const videoUrl = window.location.href;
 
             // URL kontrol et ve sadece o platformun verilerini güncelle
             if (videoUrl.includes("music.youtube.com")) {
@@ -973,6 +1055,9 @@ function sendVideoInfo() {
             } else if (videoUrl.includes("youtube.com")) {
                 await updateYoutubeInfo(firebase, video, videoUrl);
             }
+            
+            // İlk yüklemede ses seviyesini kaydet
+            window.lastVolume = video.volume;
         } catch (error) {
             console.error("Video bilgileri gönderilirken hata:", error);
         }
@@ -1032,18 +1117,29 @@ async function updateMusicInfo(firebase, video, videoUrl) {
         const thumbnailElement = document.querySelector(".image.ytmusic-player-bar");
         const thumbnailUrl = thumbnailElement ? thumbnailElement.src : null;
 
+        // Mevcut veriyi al
+        const dbRef = firebase.database.ref(`musicTracks/${musicId}`);
+        const snapshot = await dbRef.get();
+        const currentData = snapshot.val() || {};
+
         const data = {
             site: "YouTube Music",
             title: title,
             status: !video.paused ? "playing" : "paused",
             thumbnail: thumbnailUrl,
             timestamp: getIstanbulTimestamp(),
-            sessionId: firebase.sessionId
+            sessionId: firebase.sessionId,
+            volume: Math.round(video.volume * 100), // 0-100 arası değer
+            currentTime: 0 // Yeni şarkı başladığında currentTime'ı 0 olarak ayarla
         };
+        
+        // Sadece duration değerini koru
+        if (currentData.duration !== undefined) {
+            data.duration = currentData.duration;
+        }
 
         // Music ID'yi kullanarak veriyi güncelle
-        const dbRef = firebase.database.ref(`musicTracks/${musicId}`);
-        await dbRef.set(data);
+        await dbRef.update(data);
         console.log("Music bilgileri güncellendi:", data);
         
         // Şarkı başlığını sakla
@@ -1065,18 +1161,32 @@ async function updateYoutubeInfo(firebase, video, videoUrl) {
         }
         const title = titleElement.innerText;
 
+        // Mevcut veriyi al
+        const dbRef = firebase.database.ref(`youtubeVideos/${videoId}`);
+        const snapshot = await dbRef.get();
+        const currentData = snapshot.val() || {};
+        
+        // Sadece değişen alanları güncelle
         const data = {
             site: "YouTube",
             title: title,
             status: !video.paused ? "playing" : "paused",
             thumbnail: `https://img.youtube.com/vi/${videoId}/default.jpg`,
             timestamp: getIstanbulTimestamp(),
-            sessionId: firebase.sessionId
+            sessionId: firebase.sessionId,
+            volume: Math.round(video.volume * 100) // 0-100 arası değer
         };
+        
+        // Eğer currentTime ve duration değerleri varsa, onları koru
+        if (currentData.currentTime !== undefined) {
+            data.currentTime = currentData.currentTime;
+        }
+        if (currentData.duration !== undefined) {
+            data.duration = currentData.duration;
+        }
 
         // Video ID'yi kullanarak veriyi güncelle
-        const dbRef = firebase.database.ref(`youtubeVideos/${videoId}`);
-        await dbRef.set(data);
+        await dbRef.update(data);
         console.log("Video bilgileri güncellendi:", data);
         
         // Video ID'yi sakla
@@ -1114,6 +1224,59 @@ function handlePlayPauseCommand(status) {
     } catch (error) {
         console.error("Play/Pause komutu işlenirken hata:", error);
     }
+}
+
+// YouTube Music süre bilgilerini güncelle
+async function updateMusicTimeInfo(duration, currentTime) {
+    withFirebase(async (firebase) => {
+        try {
+            const title = await getCurrentMusicTitle();
+            if (title) {
+                const musicId = encodeURIComponent(title.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+                const dbRef = firebase.database.ref(`musicTracks/${musicId}`);
+                
+                const updateData = {
+                    duration: Math.round(duration),
+                    currentTime: Math.round(currentTime),
+                    timestamp: getIstanbulTimestamp()
+                };
+
+                await dbRef.update(updateData);
+                // Sadece her 5 saniyede bir log tut
+                if (Math.round(currentTime) % 5 === 0) {
+                    console.log("Music süre bilgileri güncellendi:", updateData);
+                }
+            }
+        } catch (error) {
+            console.error("Music süre bilgileri güncellenirken hata:", error);
+        }
+    });
+}
+
+// YouTube süre bilgilerini güncelle
+async function updateYoutubeTimeInfo(duration, currentTime) {
+    withFirebase(async (firebase) => {
+        try {
+            const videoId = getVideoId(window.location.href);
+            if (videoId) {
+                const dbRef = firebase.database.ref(`youtubeVideos/${videoId}`);
+                
+                const updateData = {
+                    duration: Math.round(duration),
+                    currentTime: Math.round(currentTime),
+                    timestamp: getIstanbulTimestamp()
+                };
+
+                await dbRef.update(updateData);
+                // Sadece her 5 saniyede bir log tut
+                if (Math.round(currentTime) % 5 === 0) {
+                    console.log("YouTube süre bilgileri güncellendi:", updateData);
+                }
+            }
+        } catch (error) {
+            console.error("YouTube süre bilgileri güncellenirken hata:", error);
+        }
+    });
 }
 
 // Chrome mesaj dinleyicisini düzelt

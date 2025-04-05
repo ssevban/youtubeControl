@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "xxxxxxx",
+    "firebase_url": "xxxxxxx",
+    "project_id": "xxxxxxx",
+    "storage_bucket": "xxxxxxx"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "xxxxxxx",
+        "android_client_info": {
+          "package_name": "xxxxxxx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "xxxxxxx"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
