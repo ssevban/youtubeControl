@@ -4,6 +4,8 @@
 
 [Watch Demo Video](res/video.mp4)
 
+This project has a lots of bugs.
+
 This project allows you to control YouTube playback remotely using a mobile application. The system consists of two parts:
 
 1. **Chrome Extension**: Controls YouTube in the browser
