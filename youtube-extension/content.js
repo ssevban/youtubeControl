@@ -853,6 +853,14 @@ function setupVideoListeners(video) {
         window.lastUpdateTime = Date.now();
 
         console.log("Video başlatıldı, bilgileri güncelleniyor...");
+        
+        // Video başlatıldığında ve henüz reset yapılmadıysa currentTime'ı sıfırla
+        if (!window.videoResetDone) {
+            video.currentTime = 0;
+            window.videoResetDone = true;
+            console.log("Video başlangıç zamanı sıfırlandı");
+        }
+        
         sendVideoInfo();
         
         // Video oynatıldığında Firebase'e "playing" durumunu gönder
@@ -903,16 +911,10 @@ function setupVideoListeners(video) {
     };
 
     // Süre güncelleme dinleyicisi ekle
-    window.ytTimeUpdateHandler = debounce(() => {
+    window.ytTimeUpdateHandler = () => {
         const videoUrl = window.location.href;
         const duration = video.duration;
         const currentTime = video.currentTime;
-        
-        // Eğer son güncelleme üzerinden 100ms geçmediyse işlemi iptal et
-        if (window.lastTimeUpdateTime && Date.now() - window.lastTimeUpdateTime < 100) {
-            return;
-        }
-        window.lastTimeUpdateTime = Date.now();
         
         // Süre bilgilerini Firebase'e gönder
         if (videoUrl.includes("music.youtube.com")) {
@@ -920,7 +922,7 @@ function setupVideoListeners(video) {
         } else if (videoUrl.includes("youtube.com")) {
             updateYoutubeTimeInfo(duration, currentTime);
         }
-    }, 100); // 100ms debounce
+    };
     
     // Dinleyicileri ekle ve flag'i ayarla
     if (!video.hasPlayPauseListeners) {
@@ -1006,6 +1008,8 @@ function setupMutationObserver() {
 function setupURLChangeListener() {
     // Önceki URL'yi sakla
     window.ytPreviousUrl = window.location.href;
+    // Video başlatma işlemi yapıldı mı kontrolü
+    window.videoResetDone = false;
     
     // Periyodik olarak URL'yi kontrol et
     setInterval(() => {
@@ -1024,6 +1028,8 @@ function setupURLChangeListener() {
             }
             
             window.ytPreviousUrl = currentUrl;
+            // URL değiştiğinde reset flag'ini sıfırla
+            window.videoResetDone = false;
             
             // URL değiştiğinde biraz bekleyip dinleyicileri ekle
             setTimeout(() => {
